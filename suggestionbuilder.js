@@ -26,7 +26,8 @@
 */
 
 const gio = imports.gi.Gio;
-const GLib = imports.gi.GLib;
+
+.import Qt.labs.platform 1.0 as JsQtTest
 
 const dictsearch = imports.dbsearch;
 const autocorrectdb = imports.autocorrect.db;
@@ -368,7 +369,7 @@ SuggestionBuilder.prototype = {
     
     _loadCandidateSelectionsFromFile: function(){
         try {
-            var file = gio.File.new_for_path(GLib.get_home_dir() + "/.candidate-selections.json");
+            var file = gio.File.new_for_path( JsQtTest.StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.candidate-selections.json" );
         
             if (file.query_exists (null)) {
                 
@@ -403,7 +404,7 @@ SuggestionBuilder.prototype = {
     
     _saveCandidateSelectionsToFile: function(){
         try {
-            var file = gio.File.new_for_path ( GLib.get_home_dir() + "/.candidate-selections.json");
+            var file = gio.File.new_for_path ( JsQtTest.StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.candidate-selections.json" );
             
             if (file.query_exists (null)) {
                 file.delete (null);
