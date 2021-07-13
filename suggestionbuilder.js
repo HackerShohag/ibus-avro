@@ -28,7 +28,6 @@
 const gio = imports.gi.Gio;
 
 .import Qt.labs.platform 1.0 as JsQtTest
-.import QtQuick 2.9 as QtQuick
 
 const dictsearch = imports.dbsearch;
 const autocorrectdb = imports.autocorrect.db;
@@ -367,37 +366,6 @@ SuggestionBuilder.prototype = {
         return (i < 0) ? i = 0 : i;
     },
     
-    function readFile() {
-        var filePath = JsQtTest.StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.candidate-selections.json"
-
-        var request = new QtQuick.XMLHttpRequest()
-        var sentSuccessfully = false;
-
-        request.open('GET', filePath)
-        request.onreadystatechange = function(event) {
-            // The only way i've found to distinguish successful and failed fs write operations using XHR in QML
-            //   is to check that request.readyState has got HEADERS_RECEIVED ("send has been called") value before the DONE value
-            if (request.readyState === QtQuick.XMLHttpRequest.HEADERS_RECEIVED) {
-                sentSuccessfully = true
-            }
-            if (request.readyState === QtQuick.XMLHttpRequest.DONE) {
-                if (!sentSuccessfully) {
-                    this._logger('Error reading file')
-                    this._candidateSelections = {};
-                    return
-                }
-                var json = request.responseText
-                this._candidateSelections = JSON.parse(json[0]) || {};
-                return
-            }
-        }
-        request.onerror = function(err) {
-            this._logger(err)
-            this._candidateSelections = {};
-        }
-        request.send();
-    }
-
     
     _loadCandidateSelectionsFromFile: function(){
         try {
@@ -409,6 +377,21 @@ SuggestionBuilder.prototype = {
                 var data_stream = gio.DataInputStream.new(file_stream);
                 var json = data_stream.read_until("", null);
                 this._candidateSelections = JSON.parse(json[0]) || {};
+                
+                /*
+                file.read_async(0, null,
+                		function(source, result){
+                		    var file_stream = source.read_finish(result);
+                		    
+                		    if (file_stream){
+                		        var data_stream = gio.DataInputStream.new(file_stream);
+                                var json = data_stream.read_until("", null);
+                                this._candidateSelections = JSON.parse(json[0]);
+                		    } else {
+                		        this._logger(e, 'Error in _loadCandidateSelectionsFromFile');
+                		    }
+                		});
+                */
             } else {
                 this._candidateSelections = {};
             }
@@ -417,39 +400,7 @@ SuggestionBuilder.prototype = {
            this._logger(e, 'Error in _loadCandidateSelectionsFromFile');
         }
     },
-
-    function writeFile() {
-        var filePath = JsQtTest.StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.candidate-selections.json"
-        
-        var request = new QtQuick.XMLHttpRequest();
-        var sentSuccessfully = false;
-        
-        var that = this;
-        var json = JSON.stringify(that._candidateSelections);
-
-        request.open("PUT", filePath);
-        request.onreadystatechange = function(event) {
-            // The only way i've found to distinguish successful and failed fs write operations using XHR in QML
-            //   is to check that request.readyState has got HEADERS_RECEIVED ("send has been called") value before the DONE value
-            if (request.readyState === QtQuick.XMLHttpRequest.HEADERS_RECEIVED) {
-                sentSuccessfully = true
-            }
-
-            if (request.readyState === QtQuick.XMLHttpRequest.DONE) {
-                if (!sentSuccessfully) {
-                    this._logger('Error writing file')
-                    return
-                }
-
-                this._logger("Error writing file (2)")
-            }
-        }
-        request.onerror = function(err) {
-            this._logger(err)
-        }
-
-        request.send(json);
-    }
+    
     
     _saveCandidateSelectionsToFile: function(){
         try {
