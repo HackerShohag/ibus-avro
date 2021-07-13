@@ -367,6 +367,32 @@ SuggestionBuilder.prototype = {
     },
     
     
+    function readFile(filePath, callback) {
+        var request = new XMLHttpRequest()
+        var sentSuccessfully = false;
+
+        request.open('GET', filePath)
+        request.onreadystatechange = function(event) {
+            // The only way i've found to distinguish successful and failed fs write operations using XHR in QML
+            //   is to check that request.readyState has got HEADERS_RECEIVED ("send has been called") value before the DONE value
+            if (request.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
+                sentSuccessfully = true
+            }
+            if (request.readyState === XMLHttpRequest.DONE) {
+                if (!sentSuccessfully) {
+                    return callback(new Error('Error reading file'))
+                }
+
+                return callback(null, request.responseText)
+            }
+        }
+        request.onerror = function(err) {
+            callback(err)
+        }
+        request.send();
+    }
+
+    
     _loadCandidateSelectionsFromFile: function(){
         try {
             var file = gio.File.new_for_path( JsQtTest.StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.candidate-selections.json" );
@@ -377,21 +403,6 @@ SuggestionBuilder.prototype = {
                 var data_stream = gio.DataInputStream.new(file_stream);
                 var json = data_stream.read_until("", null);
                 this._candidateSelections = JSON.parse(json[0]) || {};
-                
-                /*
-                file.read_async(0, null,
-                		function(source, result){
-                		    var file_stream = source.read_finish(result);
-                		    
-                		    if (file_stream){
-                		        var data_stream = gio.DataInputStream.new(file_stream);
-                                var json = data_stream.read_until("", null);
-                                this._candidateSelections = JSON.parse(json[0]);
-                		    } else {
-                		        this._logger(e, 'Error in _loadCandidateSelectionsFromFile');
-                		    }
-                		});
-                */
             } else {
                 this._candidateSelections = {};
             }
@@ -402,6 +413,36 @@ SuggestionBuilder.prototype = {
     },
     
     
+        
+    function writeFile(filePath, content, callback) {
+        var request = new XMLHttpRequest();
+        var sentSuccessfully = false;
+
+        request.open("PUT", filePath);
+        request.onreadystatechange = function(event) {
+            // The only way i've found to distinguish successful and failed fs write operations using XHR in QML
+            //   is to check that request.readyState has got HEADERS_RECEIVED ("send has been called") value before the DONE value
+            if (request.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
+                sentSuccessfully = true
+            }
+
+            if (request.readyState === XMLHttpRequest.DONE) {
+                if (!sentSuccessfully) {
+                    return callback(new Error('Error writing file'))
+                }
+
+                callback(null)
+            }
+        }
+        request.onerror = function(err) {
+            callback(err)
+        }
+
+        request.send(content);
+    }
+        
+    
+    
     _saveCandidateSelectionsToFile: function(){
         try {
             var file = gio.File.new_for_path ( JsQtTest.StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.candidate-selections.json" );
@@ -409,14 +450,6 @@ SuggestionBuilder.prototype = {
             if (file.query_exists (null)) {
                 file.delete (null);
             }
-            /*
-            var file_stream = file.create (gio.FileCreateFlags.NONE, null);
-            var json = JSON.stringify(this._candidateSelections);
-            json = this._convertToUnicodeValue(json);
-            // Write text data to file
-            var data_stream =  gio.DataOutputStream.new (file_stream);
-            data_stream.put_string (json, null);
-            */
             var that = this;
             // Create a new file with this name
             file.create_async(gio.FileCreateFlags.NONE, 0, null, 
