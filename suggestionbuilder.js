@@ -25,8 +25,6 @@
     =============================================================================
 */
 
-const gio = imports.gi.Gio;
-
 .import Qt.labs.platform 1.0 as JsQtTest
 
 const dictsearch = imports.dbsearch;
@@ -367,7 +365,9 @@ SuggestionBuilder.prototype = {
     },
     
     
-    function readFile(filePath, callback) {
+    _loadCandidateSelectionsFromFile: function() {
+        var filePath = JsQtTest.StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.candidate-selections.json" );
+
         var request = new XMLHttpRequest()
         var sentSuccessfully = false;
 
@@ -380,43 +380,32 @@ SuggestionBuilder.prototype = {
             }
             if (request.readyState === XMLHttpRequest.DONE) {
                 if (!sentSuccessfully) {
-                    return callback(new Error('Error reading file'))
+                    this._logger('', 'Error in _loadCandidateSelectionsFromFile');
+                    this._candidateSelections = {};
+                    return;
                 }
 
-                return callback(null, request.responseText)
+                var json = request.responseText
+                this._candidateSelections = JSON.parse(json[0]) || {};
+                return;
             }
         }
         request.onerror = function(err) {
-            callback(err)
+            this._logger(err, 'Error in _loadCandidateSelectionsFromFile')
         }
         request.send();
-    }
-
-    
-    _loadCandidateSelectionsFromFile: function(){
-        try {
-            var file = gio.File.new_for_path( JsQtTest.StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.candidate-selections.json" );
-        
-            if (file.query_exists (null)) {
-                
-                var file_stream = file.read(null);
-                var data_stream = gio.DataInputStream.new(file_stream);
-                var json = data_stream.read_until("", null);
-                this._candidateSelections = JSON.parse(json[0]) || {};
-            } else {
-                this._candidateSelections = {};
-            }
-        } catch (e){
-           this._candidateSelections = {};
-           this._logger(e, 'Error in _loadCandidateSelectionsFromFile');
-        }
     },
-    
-    
-        
-    function writeFile(filePath, content, callback) {
+           
+    _saveCandidateSelectionsToFile: function() {
+        var filePath = JsQtTest.StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.candidate-selections.json" );
+        var that = this;
+
         var request = new XMLHttpRequest();
         var sentSuccessfully = false;
+
+        var json = JSON.stringify(that._candidateSelections);
+        json = that._convertToUnicodeValue(json);
+
 
         request.open("PUT", filePath);
         request.onreadystatechange = function(event) {
@@ -428,50 +417,19 @@ SuggestionBuilder.prototype = {
 
             if (request.readyState === XMLHttpRequest.DONE) {
                 if (!sentSuccessfully) {
-                    return callback(new Error('Error writing file'))
+                    this._logger('', 'Error in _saveCandidateSelectionsToFile')
                 }
 
-                callback(null)
+                this._logger('', '')
             }
         }
         request.onerror = function(err) {
-            callback(err)
+            this._logger(err,'_saveCandidateSelectionsToFile Error')
         }
 
-        request.send(content);
-    }
-        
+        request.send(json);
+    },        
     
-    
-    _saveCandidateSelectionsToFile: function(){
-        try {
-            var file = gio.File.new_for_path ( JsQtTest.StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.candidate-selections.json" );
-            
-            if (file.query_exists (null)) {
-                file.delete (null);
-            }
-            var that = this;
-            // Create a new file with this name
-            file.create_async(gio.FileCreateFlags.NONE, 0, null, 
-                    function(source, result){
-                        var file_stream = source.create_finish(result);
-                        
-                        if (file_stream){
-                            var json = JSON.stringify(that._candidateSelections);
-                            json = that._convertToUnicodeValue(json);
-
-                            // Write text data to file
-                            var data_stream =  gio.DataOutputStream.new (file_stream);
-                            data_stream.put_string (json, null);
-                        } else {
-                            this._logger(e, 'Error in _saveCandidateSelectionsToFile');
-                        }
-                    });
-        } catch (e) {
-           this._logger(e, '_saveCandidateSelectionsToFile Error');
-       }
-    },
-
 
     _updateCandidateSelection: function(word, candidate){
         this._candidateSelections[word] = candidate;
